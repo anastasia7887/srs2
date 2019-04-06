@@ -1,0 +1,178 @@
+---
+title: "Kononova"
+output:
+
+  html_document:
+
+    df_print: paged
+
+  html_notebook: default
+
+  pdf_document: default
+
+  word_document: default
+---
+
+Имеются данные:
+Набор данных `Bank` содержит сведения о результатах прямых маркетинговых кампаний (прямые обзвоны), проводимых португальскими банками в 2008 -- 2010 гг. Цель -- предсказать, сделает ли клиент срочный вклад (переменная `y`). Список столбцов (данные о потенциальных клиентах, которым звонили):   
+
+*Данные банковского досье*   
+
+1. **`age`** -- возраст в годах.   
+
+1. **`job`** -- тип работы.   
+
+1. **`marital `** -- семейное положение.   
+
+1. **`education `** -- уровень образования: `basic.4y` -- школа, 4 года; `basic.6y` -- школа, 6 лет; `basic.9y` -- школа, 9 лет; `high.school` -- оконченное школьное, `illiterate` -- неграмотный, `professional.course` -- профессиональное, `university.degree` -- диплом университета, `unknown` -- неизвестно.   
+
+1. **`default`** -- был ли дефолт по кредиту ранее.   
+
+1. **`housing`** -- есть ли ипотека.   
+
+1. **`loan`** -- есть ли личный кредит.   
+
+*Данные банковского обзвона*   
+
+1. **`contact`** -- тип обзвона: `telephone` -- по стационарному телефону, `cellular` -- по сотовому.   
+
+1. **`month`** -- месяц последнего звонка.   
+
+1. **`day_of_week`** -- день недели последнего звонка.   
+
+1. **`duration`** -- длительность посленднего звонка. Внимание: до начала разговора значение неизвестно, а после окончания разговора ещё не известен результат (купит ли продукт банка).   
+
+1. **`campaign`** -- количество контактов с этим клиентом за посленднюю компанию, включая последний звонок.   
+
+1. **`pdays`** -- сколько прошло дней с последнего звонка клиенту в предыдущую маркетинговую кампанию (значение 999 означает, что звоним впервые).   
+
+1. **`previous`** -- сколько раз звонили клиенту в последнюю маркетинговую кампанию.   
+
+1. **`poutcome`** -- чем кончился контакт с клиентом в предыдущую кампанию: `failure` -- неудача, `nonexistent` -- контакта не было, `success` -- успех.   
+
+*Целевая переменная*   
+
+1. **`y`** -- открыл ли клиент срочный вклад: `yes` -- да, `no` -- нет.    
+
+Нужно узнать зависит ли открытие клиентом срочного вкалада от возраста, места работы, семейного положения, образования клиента, наличия у него кредита и дефолта по нему, ипотеки; и зависит ли открытие вклада от данных банковского обзвона, таких как дата обзвона, количество контактов, тип обзвона, количество звонков, успешное окончание контакта.
+
+*Проведем предварительный анализ данных.*
+
+```{r Данные и пакеты, warning = F, message = F}
+
+# загрузка пакетов
+library('GGally') 
+library('ISLR')
+library('MASS')
+library('boot')
+#Загружаем данные
+data <- read.csv("Bank_for_models.csv", header = TRUE, dec = ",", sep = ";")
+head(data)
+df.train <- data
+my.seed <- 11
+#Представляем переменные как факторы
+df.train$job <- as.factor(df.train$job)
+df.train$marital <- as.factor(df.train$marital)
+df.train$education <- as.factor(df.train$education)
+df.train$default <- as.factor(df.train$default)
+df.train$housing <- as.factor(df.train$housing)
+df.train$loan <- as.factor(df.train$loan)
+df.train$contact <- as.factor(df.train$contact)
+df.train$month <- as.factor(df.train$month)
+df.train$poutcome <- as.factor(df.train$poutcome)
+df.train$y <- as.factor(df.train$y)
+```
+
+```{r Описание данных-01, message = F, warning = F}
+str(df.train)
+summary(df.train)
+ggp <- ggpairs(df.train[, c('job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'poutcome', 'y')])
+print(ggp, progress = F)
+
+df.tr1 <- df.train[, c('age', 'balance', 'day', 'duration', 'campaign', 'pdays', 'previous', 'y')]
+df.tr1$y <- as.numeric(df.tr1$y)
+
+cor(df.tr1)
+cor.test(y=df.tr1$y, df.tr1[, 1])
+cor.test(y=df.tr1$y, df.tr1[, 2])
+cor.test(y=df.tr1$y, df.tr1[, 3])
+cor.test(y=df.tr1$y, df.tr1[, 4])
+cor.test(y=df.tr1$y, df.tr1[, 5])
+cor.test(y=df.tr1$y, df.tr1[, 6])
+cor.test(y=df.tr1$y, df.tr1[, 7])
+
+
+df.tr2 <- df.train[, c('job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'poutcome', 'y')]
+
+
+chisq.test(ftable(df.tr2$job,df.tr2$y))
+chisq.test(ftable(df.tr2$marital,df.tr2$y))
+chisq.test(ftable(df.tr2$education,df.tr2$y))
+chisq.test(ftable(df.tr2$default,df.tr2$y))
+chisq.test(ftable(df.tr2$housing,df.tr2$y))
+chisq.test(ftable(df.tr2$loan,df.tr2$y))
+chisq.test(ftable(df.tr2$contact,df.tr2$y))
+chisq.test(ftable(df.tr2$month,df.tr2$y))
+chisq.test(ftable(df.tr2$poutcome,df.tr2$y))
+#все значимы
+```
+Судя по графикам разброса и коэффициентам корреляции все переменные в той или иной степени влияют на изучаемую.
+
+
+Построим модель логистической регрессии включив в нее все переменные
+```{r логистическая регрессия, message = F, warning = F}
+#Строим модель на всех переменных
+model.logit <- glm(y ~ age+job+marital+education+default+balance+housing+loan+contact+day+month+duration+campaign+pdays+previous+poutcome,
+                   data = df.train, family = 'binomial')
+
+
+summary(model.logit)
+```
+Пошагово исключим из нее все незначимые регрессоры и получим итоговую модель.
+```{r логистическая регрессия 1, message = F, warning = F}
+
+
+model.logit <- glm(y ~ job+education+balance+housing+loan+month+duration+campaign+poutcome,
+                   data = df.train, family = 'binomial')
+
+summary(model.logit)
+```
+
+Теперь рассмотрим полиномиальные моедли и проведем 10-ти кратную перекрестную проверку.
+```{r полиномы, message = F, warning = F}
+#Полиномы
+attach(df.train)
+y <- as.numeric(y)
+
+cv.err.k.fold <- rep(0, 5)
+names(cv.err.k.fold) <- 1:5
+
+
+#10 кратная перекрестная проверка
+
+
+cv.err.k.fold0 <- cv.glm(df.train, model.logit, K = 10)$delta[1]
+
+# цикл по степеням полиномов
+df.train$y <- as.numeric(df.train$y)
+for (i in 1:5) {
+  fit.glm <- glm(y ~ poly(age, i)+poly(balance, i)+poly(duration, i)+poly(previous, i)+poly(campaign, i)+poly(pdays, i)+poly(day, i))
+  cv.err.k.fold[i] <- cv.glm(data=df.train, fit.glm, K = 10)$delta[1]
+  
+}
+cv.err.k.fold0
+cv.err.k.fold
+detach(df.train)
+```
+Судя по полученным значениям первая модель самая лучшая, так как имеет наименььшую ошибку. На ее основе и будем строить прогноз.
+
+```{r прогноз, message = F, warning = F}
+data1 <- read.csv("Bank_for_forecast.csv", header = TRUE, dec = ",", sep = ";")
+df.test <- data1
+p.logit <- predict(model.logit, df.test, type = 'response')
+
+Prognoz <- factor(ifelse(p.logit > 0.5, 2, 1), levels = c(1 ,2),
+                  labels = c('No', 'Yes'))
+head(Prognoz)
+```
+
